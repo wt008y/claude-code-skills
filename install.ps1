@@ -1,6 +1,9 @@
 # Claude Code Skills Installer (PowerShell)
 # 用法: .\install.ps1
 
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$SkillsSource = Join-Path $ScriptDir ".agents" "skills"
+
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host "  Claude Code 设计技能包 - 自动安装" -ForegroundColor Cyan
 Write-Host "============================================" -ForegroundColor Cyan
@@ -35,48 +38,49 @@ if ($setMirror -eq "y") {
     Write-Host "[OK] npm 镜像已设置为 npmmirror.com" -ForegroundColor Green
 }
 
+# Local copy fallback function
+function Copy-LocalSkill {
+    param([string]$Name)
+    $src = Join-Path $SkillsSource $Name
+    $dst = Join-Path (Get-Location) ".agents" "skills" $Name
+    if (Test-Path $src) {
+        New-Item -ItemType Directory -Force -Path $dst | Out-Null
+        Copy-Item -Recurse -Force "$src\*" "$dst\"
+        return $true
+    }
+    return $false
+}
+
 Write-Host ""
 Write-Host "===== 开始安装技能 =====" -ForegroundColor Yellow
 Write-Host ""
 
-# Installation commands
 $skills = @(
-    @{Name="frontend-design"; Source="anthropics/skills@frontend-design"; OnlineOnly=$false},
-    @{Name="ui-ux-pro-max"; Source=""; OnlineOnly=$true},  # Manual copy only
-    @{Name="baseline-ui"; Source="ibelick/ui-skills@baseline-ui"; OnlineOnly=$false},
-    @{Name="fixing-accessibility"; Source="ibelick/ui-skills@fixing-accessibility"; OnlineOnly=$false},
-    @{Name="fixing-metadata"; Source="ibelick/ui-skills@fixing-metadata"; OnlineOnly=$false},
-    @{Name="fixing-motion-performance"; Source="ibelick/ui-skills@fixing-motion-performance"; OnlineOnly=$false}
+    @{Name="frontend-design"; Source="anthropics/skills@frontend-design"},
+    @{Name="ui-ux-pro-max"; Source=""; LocalOnly=$true},
+    @{Name="baseline-ui"; Source="ibelick/ui-skills@baseline-ui"},
+    @{Name="fixing-accessibility"; Source="ibelick/ui-skills@fixing-accessibility"},
+    @{Name="fixing-metadata"; Source="ibelick/ui-skills@fixing-metadata"},
+    @{Name="fixing-motion-performance"; Source="ibelick/ui-skills@fixing-motion-performance"}
 )
 
 $count = 1
 foreach ($skill in $skills) {
     Write-Host "[$count/$($skills.Count)] 安装 $($skill.Name)..." -ForegroundColor Yellow
 
-    if ($skill.OnlineOnly) {
-        # Try online first, then fallback to local copy
-        Write-Host "[提示] 尝试从本地复制 $($skill.Name)..." -ForegroundColor Gray
-        $sourcePath = Join-Path $PSScriptRoot "skills" $skill.Name
-        $targetPath = Join-Path (Get-Location) ".agents" "skills" $skill.Name
-
-        if (Test-Path $sourcePath) {
-            New-Item -ItemType Directory -Force -Path $targetPath | Out-Null
-            Copy-Item -Recurse -Force "$sourcePath\*" "$targetPath\"
+    if ($skill.LocalOnly) {
+        # Local-only skill (ui-ux-pro-max)
+        if (Copy-LocalSkill $skill.Name) {
             Write-Host "[OK] $($skill.Name) 已从本地复制" -ForegroundColor Green
         } else {
             Write-Host "[警告] 未找到 $($skill.Name) 本地文件" -ForegroundColor Red
         }
     } else {
-        # Try npx install
+        # Try npx install first, fallback to local copy
         npx skills add $skill.Source
         if ($LASTEXITCODE -ne 0) {
             Write-Host "[警告] $($skill.Name) 在线安装失败，尝试本地复制..." -ForegroundColor Yellow
-            $sourcePath = Join-Path $PSScriptRoot "skills" $skill.Name
-            $targetPath = Join-Path (Get-Location) ".agents" "skills" $skill.Name
-
-            if (Test-Path $sourcePath) {
-                New-Item -ItemType Directory -Force -Path $targetPath | Out-Null
-                Copy-Item -Recurse -Force "$sourcePath\*" "$targetPath\"
+            if (Copy-LocalSkill $skill.Name) {
                 Write-Host "[OK] $($skill.Name) 已从本地复制" -ForegroundColor Green
             } else {
                 Write-Host "[警告] $($skill.Name) 安装失败" -ForegroundColor Red
@@ -94,6 +98,8 @@ Write-Host "  安装完成！" -ForegroundColor Cyan
 Write-Host "" -ForegroundColor Cyan
 Write-Host "  使用流程: frontend-design → baseline-ui" -ForegroundColor Cyan
 Write-Host "           → fixing-accessibility → fixing-motion-performance" -ForegroundColor Cyan
+Write-Host "" -ForegroundColor Cyan
+Write-Host "  提示：别忘了把 CLAUDE.md 复制到项目根目录" -ForegroundColor Yellow
 Write-Host "============================================" -ForegroundColor Cyan
 
 Read-Host "按回车键退出"

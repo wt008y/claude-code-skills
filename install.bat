@@ -40,11 +40,20 @@ echo.
 echo ===== 开始安装技能 =====
 echo.
 
+:: Detect script directory (where this bat file is located)
+set SKILLS_DIR=%~dp0.agents\skills
+
 :: 1. frontend-design
 echo [1/6] 安装 frontend-design（官方）
 call npx skills add anthropics/skills@frontend-design
 if %ERRORLEVEL% NEQ 0 (
-    echo [警告] frontend-design 安装失败
+    echo [警告] frontend-design 在线安装失败，尝试本地复制...
+    if exist "%SKILLS_DIR%\frontend-design" (
+        xcopy /E /I /Y "%SKILLS_DIR%\frontend-design" ".agents\skills\frontend-design"
+        echo [OK] frontend-design 已从本地复制
+    ) else (
+        echo [警告] 未找到 frontend-design 本地文件
+    )
 ) else (
     echo [OK] frontend-design 安装成功
 )
@@ -52,15 +61,12 @@ echo.
 
 :: 2. ui-ux-pro-max
 echo [2/6] 安装 ui-ux-pro-max（社区）
-call npx skills add ibelick/ui-skills@ui-ux-pro-max 2>nul
-if %ERRORLEVEL% NEQ 0 (
-    echo [提示] 在线安装失败，尝试从本地复制...
-    if exist "%~dp0skills\ui-ux-pro-max" (
-        xcopy /E /I /Y "%~dp0skills\ui-ux-pro-max" ".agents\skills\ui-ux-pro-max"
-        echo [OK] ui-ux-pro-max 已从本地复制
-    ) else (
-        echo [警告] 未找到 ui-ux-pro-max 本地文件，请手动安装
-    )
+echo [提示] 从本地复制...
+if exist "%SKILLS_DIR%\ui-ux-pro-max" (
+    xcopy /E /I /Y "%SKILLS_DIR%\ui-ux-pro-max" ".agents\skills\ui-ux-pro-max"
+    echo [OK] ui-ux-pro-max 已从本地复制
+) else (
+    echo [警告] 未找到 ui-ux-pro-max 本地文件
 )
 echo.
 
@@ -68,7 +74,13 @@ echo.
 echo [3/6] 安装 baseline-ui
 call npx skills add ibelick/ui-skills@baseline-ui
 if %ERRORLEVEL% NEQ 0 (
-    echo [警告] baseline-ui 安装失败
+    echo [警告] baseline-ui 在线安装失败，尝试本地复制...
+    if exist "%SKILLS_DIR%\baseline-ui" (
+        xcopy /E /I /Y "%SKILLS_DIR%\baseline-ui" ".agents\skills\baseline-ui"
+        echo [OK] baseline-ui 已从本地复制
+    ) else (
+        echo [警告] 未找到 baseline-ui 本地文件
+    )
 ) else (
     echo [OK] baseline-ui 安装成功
 )
@@ -78,7 +90,13 @@ echo.
 echo [4/6] 安装 fixing-accessibility
 call npx skills add ibelick/ui-skills@fixing-accessibility
 if %ERRORLEVEL% NEQ 0 (
-    echo [警告] fixing-accessibility 安装失败
+    echo [警告] fixing-accessibility 在线安装失败，尝试本地复制...
+    if exist "%SKILLS_DIR%\fixing-accessibility" (
+        xcopy /E /I /Y "%SKILLS_DIR%\fixing-accessibility" ".agents\skills\fixing-accessibility"
+        echo [OK] fixing-accessibility 已从本地复制
+    ) else (
+        echo [警告] 未找到 fixing-accessibility 本地文件
+    )
 ) else (
     echo [OK] fixing-accessibility 安装成功
 )
@@ -88,7 +106,13 @@ echo.
 echo [5/6] 安装 fixing-metadata
 call npx skills add ibelick/ui-skills@fixing-metadata
 if %ERRORLEVEL% NEQ 0 (
-    echo [警告] fixing-metadata 安装失败
+    echo [警告] fixing-metadata 在线安装失败，尝试本地复制...
+    if exist "%SKILLS_DIR%\fixing-metadata" (
+        xcopy /E /I /Y "%SKILLS_DIR%\fixing-metadata" ".agents\skills\fixing-metadata"
+        echo [OK] fixing-metadata 已从本地复制
+    ) else (
+        echo [警告] 未找到 fixing-metadata 本地文件
+    )
 ) else (
     echo [OK] fixing-metadata 安装成功
 )
@@ -98,7 +122,13 @@ echo.
 echo [6/6] 安装 fixing-motion-performance
 call npx skills add ibelick/ui-skills@fixing-motion-performance
 if %ERRORLEVEL% NEQ 0 (
-    echo [警告] fixing-motion-performance 安装失败
+    echo [警告] fixing-motion-performance 在线安装失败，尝试本地复制...
+    if exist "%SKILLS_DIR%\fixing-motion-performance" (
+        xcopy /E /I /Y "%SKILLS_DIR%\fixing-motion-performance" ".agents\skills\fixing-motion-performance"
+        echo [OK] fixing-motion-performance 已从本地复制
+    ) else (
+        echo [警告] 未找到 fixing-motion-performance 本地文件
+    )
 ) else (
     echo [OK] fixing-motion-performance 安装成功
 )
@@ -107,8 +137,11 @@ echo.
 echo ============================================
 echo   安装完成！
 echo.
-echo   如果部分技能在线安装失败，请将本仓库的
-echo   skills/ 目录复制到项目 .agents/skills/ 下
+echo   使用流程:
+echo   frontend-design ^> baseline-ui
+echo   ^> fixing-accessibility ^> fixing-motion-performance
+echo.
+echo   提示：别忘了把 CLAUDE.md 复制到项目根目录
 echo ============================================
 echo.
 pause
