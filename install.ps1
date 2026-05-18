@@ -1,105 +1,78 @@
-# Claude Code Skills Installer (PowerShell)
-# 用法: .\install.ps1
+# Claude Code 完整配置安装器
+# 用法: .\install.ps1 [-ProjectPath <path>] [-SkipSkills]
+
+param(
+    [string]$ProjectPath = (Get-Location).Path,
+    [switch]$SkipSkills
+)
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SkillsSource = Join-Path $ScriptDir ".agents" "skills"
+$ConfigDir = Join-Path $ScriptDir "config"
+$UserClaude = Join-Path $env:USERPROFILE ".claude"
 
-Write-Host "============================================" -ForegroundColor Cyan
-Write-Host "  Claude Code 设计技能包 - 自动安装" -ForegroundColor Cyan
-Write-Host "============================================" -ForegroundColor Cyan
-Write-Host ""
+Write-Host "===== Claude Code 配置安装 =====" -ForegroundColor Cyan
 
-# Check Node.js
-try {
-    $nodeVersion = node --version
-    Write-Host "[OK] Node.js: $nodeVersion" -ForegroundColor Green
-} catch {
-    Write-Host "[错误] 未检测到 Node.js，请先安装：https://nodejs.org" -ForegroundColor Red
-    Read-Host "按回车键退出"
+# 1. 检测 Node.js
+try { $null = node --version } catch {
+    Write-Host "[错误] Node.js 未安装: https://nodejs.org" -ForegroundColor Red
     exit 1
 }
+Write-Host "[OK] Node.js $(node --version)" -ForegroundColor Green
 
-# Check npm
-try {
-    $npmVersion = npm --version
-    Write-Host "[OK] npm: $npmVersion" -ForegroundColor Green
-} catch {
-    Write-Host "[错误] 未检测到 npm" -ForegroundColor Red
-    Read-Host "按回车键退出"
-    exit 1
-}
-
-Write-Host ""
-
-# Ask whether to set npm mirror
-$setMirror = Read-Host "是否设置 npm 淘宝镜像？(y/n, 默认 n)"
+# 2. npm 镜像
+$setMirror = Read-Host "设置 npm 淘宝镜像？(y/n)"
 if ($setMirror -eq "y") {
     npm config set registry https://registry.npmmirror.com
-    Write-Host "[OK] npm 镜像已设置为 npmmirror.com" -ForegroundColor Green
+    Write-Host "[OK] 镜像已设置" -ForegroundColor Green
 }
 
-# Local copy fallback function
-function Copy-LocalSkill {
-    param([string]$Name)
-    $src = Join-Path $SkillsSource $Name
-    $dst = Join-Path (Get-Location) ".agents" "skills" $Name
-    if (Test-Path $src) {
-        New-Item -ItemType Directory -Force -Path $dst | Out-Null
-        Copy-Item -Recurse -Force "$src\*" "$dst\"
-        return $true
+# 3. 创建目录
+$null = New-Item -ItemType Directory -Force -Path (Join-Path $UserClaude ".agents" "skills")
+$null = New-Item -ItemType Directory -Force -Path (Join-Path $ProjectPath ".agents" "skills")
+$null = New-Item -ItemType Directory -Force -Path (Join-Path $UserClaude "projects" "e--AI--" "memory")
+
+# 4. 安装技能到用户级（全局）
+if (-not $SkipSkills) {
+    Write-Host "===== 安装技能 =====" -ForegroundColor Yellow
+    $skills = Get-ChildItem $SkillsSource -Directory
+    foreach ($skill in $skills) {
+        $dst = Join-Path $UserClaude ".agents" "skills" $skill.Name
+        Copy-Item -Recurse -Force "$($skill.FullName)\*" "$dst\"
+        Write-Host "[OK] $($skill.Name)" -ForegroundColor Green
     }
-    return $false
 }
 
-Write-Host ""
-Write-Host "===== 开始安装技能 =====" -ForegroundColor Yellow
-Write-Host ""
-
-$skills = @(
-    @{Name="frontend-design"; Source="anthropics/skills@frontend-design"},
-    @{Name="ui-ux-pro-max"; Source=""; LocalOnly=$true},
-    @{Name="baseline-ui"; Source="ibelick/ui-skills@baseline-ui"},
-    @{Name="fixing-accessibility"; Source="ibelick/ui-skills@fixing-accessibility"},
-    @{Name="fixing-metadata"; Source="ibelick/ui-skills@fixing-metadata"},
-    @{Name="fixing-motion-performance"; Source="ibelick/ui-skills@fixing-motion-performance"}
-)
-
-$count = 1
-foreach ($skill in $skills) {
-    Write-Host "[$count/$($skills.Count)] 安装 $($skill.Name)..." -ForegroundColor Yellow
-
-    if ($skill.LocalOnly) {
-        # Local-only skill (ui-ux-pro-max)
-        if (Copy-LocalSkill $skill.Name) {
-            Write-Host "[OK] $($skill.Name) 已从本地复制" -ForegroundColor Green
-        } else {
-            Write-Host "[警告] 未找到 $($skill.Name) 本地文件" -ForegroundColor Red
-        }
-    } else {
-        # Try npx install first, fallback to local copy
-        npx skills add $skill.Source
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "[警告] $($skill.Name) 在线安装失败，尝试本地复制..." -ForegroundColor Yellow
-            if (Copy-LocalSkill $skill.Name) {
-                Write-Host "[OK] $($skill.Name) 已从本地复制" -ForegroundColor Green
-            } else {
-                Write-Host "[警告] $($skill.Name) 安装失败" -ForegroundColor Red
-            }
-        } else {
-            Write-Host "[OK] $($skill.Name) 安装成功" -ForegroundColor Green
-        }
-    }
-    Write-Host ""
-    $count++
+# 5. 项目级技能（可选，如果项目路径不同于脚本目录）
+if ($ProjectPath -ne $ScriptDir) {
+    Copy-Item -Recurse -Force "$SkillsSource\*" (Join-Path $ProjectPath ".agents" "skills") -ErrorAction SilentlyContinue
 }
 
-Write-Host "============================================" -ForegroundColor Cyan
-Write-Host "  安装完成！" -ForegroundColor Cyan
-Write-Host "" -ForegroundColor Cyan
-Write-Host "  使用流程: frontend-design → baseline-ui" -ForegroundColor Cyan
-Write-Host "           → fixing-accessibility → fixing-motion-performance" -ForegroundColor Cyan
-Write-Host "" -ForegroundColor Cyan
-Write-Host "  提示：别忘了把 CLAUDE.md 复制到项目根目录" -ForegroundColor Yellow
-Write-Host "============================================" -ForegroundColor Cyan
+# 6. settings.json
+$userSettings = Join-Path $UserClaude "settings.json"
+if (Test-Path $userSettings) {
+    Write-Host "[跳过] settings.json 已存在" -ForegroundColor Yellow
+} else {
+    $apiKey = Read-Host "输入 API Key (回车跳过)"
+    $template = Get-Content (Join-Path $ConfigDir "settings.template.json") -Raw
+    $template = $template -replace "YOUR_API_KEY_HERE", $apiKey
+    Set-Content -Path $userSettings -Value $template -Encoding utf8
+    Write-Host "[OK] settings.json 已创建" -ForegroundColor Green
+}
 
-Read-Host "按回车键退出"
+# 7. 记忆文件
+Copy-Item (Join-Path $ConfigDir "memory" "*") (Join-Path $UserClaude "projects" "e--AI--" "memory") -Force
+Write-Host "[OK] 记忆文件已恢复" -ForegroundColor Green
+
+# 8. CLAUDE.md 到项目
+$claudeSrc = Join-Path $ScriptDir "CLAUDE.md"
+$claudeDst = Join-Path $ProjectPath "CLAUDE.md"
+if (-not (Test-Path $claudeDst)) {
+    Copy-Item $claudeSrc $claudeDst
+    Write-Host "[OK] CLAUDE.md -> 项目" -ForegroundColor Green
+} else {
+    Write-Host "[跳过] CLAUDE.md 已存在" -ForegroundColor Yellow
+}
+
+Write-Host "===== 安装完成 =====" -ForegroundColor Cyan
+Write-Host "技能: /frontend-design, /baseline-ui, /fixing-accessibility, /fixing-metadata, /fixing-motion-performance, /ui-ux-pro-max"

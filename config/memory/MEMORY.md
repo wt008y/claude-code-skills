@@ -1,0 +1,3 @@
+- [Skills Repo](reference_skills-repo.md) — GitHub repo wt008y/claude-code-skills with 6 frontend design skills
+- [Skills Global Install](project_skills-global-install.md) — 6 design skills installed globally at ~/.claude/.agents/skills/
+- [Conversation Style](feedback_conversation-style.md) — 不说废话、不捧用户、纯净输出、效率优先
